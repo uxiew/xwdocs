@@ -1,0 +1,67 @@
+[package]
+name = "xwdoc"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A Rust implementation of DevDocs API Documentation Browser (xwdoc)"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+# HTTP client for the scraper
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+
+# HTML parsing
+html5ever = "0.26"
+markup5ever_rcdom = "0.2.0"
+markup5ever_arcdom = "0.1.1"
+kuchiki = "0.8"
+
+# Web server for the app
+axum = "0.6"
+tokio = { version = "1", features = ["full"] }
+
+# Serialization/deserialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Command line interface
+clap = { version = "4.3", features = ["derive"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# File system operations
+walkdir = "2.3"
+
+# Compression
+flate2 = "1.0"
+
+# Regular expressions
+regex = "1.9"
+scraper = "0.23.1"
+url = "2.4"
+lazy_static = "1.4.0"
+base64 = "0.22.1"
+
+# Image processing
+image = "0.25.6"
+
+# Async trait support
+async-trait = "0.1"
+
+# Futures utilities
+futures-util = "0.3"
+
+# 日期时间处理
+chrono = "0.4"
+
+[dev-dependencies]
+mockito = "1.0"
+test-case = "3.1"
+tempfile = "3.8"
