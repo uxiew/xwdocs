@@ -9,30 +9,6 @@ XWDoc是[DevDocs](https://devdocs.io)的Rust实现，一个API文档浏览器，
 
 ## Start
 
-```sh
-# 克隆仓库
-git clone https://github.com/yourusername/xwdoc.git && cd xwdoc
-
-# 构建项目
-cargo build
-
-# 运行服务器
-cargo run server
-
-# 下载默认文档
-cargo run docs download --default
-
-# 抓取Babel文档
-cargo run docs generate babel
-
-# 查看可用文档列表
-cargo run docs list
-```
-
-## 命令行工具
-
-XWDoc提供了强大的命令行工具，可以方便地管理和使用文档：
-
 ### 服务器命令
 
 ```sh
@@ -78,16 +54,6 @@ cargo run docs clean
 
 # 生成文档清单
 cargo run docs manifest
-```
-
-### 抓取器命令
-
-```sh
-# 列出可用的抓取器
-cargo run scraper list
-
-# 运行抓取器
-cargo run scraper run babel --version 7 --output ./docs
 ```
 
 ## 项目结构
@@ -151,11 +117,6 @@ cargo test babel_scraper
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 打开Pull Request
 
-## 许可证
-
-本项目采用MIT许可证 - 有关详细信息，请参阅LICENSE文件。
-   - `list`: Lists available documentation
-
 ## Supported Documentation Types
 
 The project supports several documentation types, with specialized scrapers for each:
@@ -190,19 +151,6 @@ cargo run
 # Run the integration test to compare original and improved implementations
 cargo run --bin babel_integration_test
 ```
-
-## Command Line Interface
-
-- `server`: 启动 Web 服务器
-- `scrape`: 抓取特定文档
-- `manifest`: 生成文档清单
-- `list`: 列出可用文档
-
-支持的参数和选项包括：
-
-- `--help`、`-h`：显示帮助信息
-- `--version`：显示版本信息
-- 配置文件和环境变量支持（如 `XWDOC_DATA_DIR`）
 
 ## Testing
 
@@ -246,10 +194,6 @@ Contributions are welcome! Please follow these steps:
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push the branch (`git push origin feature/amazing-feature`)
 5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgements
 
