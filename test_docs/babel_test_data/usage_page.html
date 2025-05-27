@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Babel Usage Test</title></head>
+<body>
+    <div class="theme-doc-markdown">
+        <header class="postHeader">
+            <h1>Babel Usage Guide</h1>
+            <a href="/docs/usage/edit">Edit this page</a> <!-- This <a> is a child of .postHeader, but not targeted by specific removal rules in clean.rs -->
+        </header>
+        <p>Some introductory text about Babel usage.</p>
+        <div class="codeBlockTitle_x_ju">Example with Title</div>
+        <pre class="language-bash"><code># A bash example
+npm install --save-dev @babel/core @babel/cli
+        </code></pre>
+        <p>Another paragraph with <strong style="font-weight: bold;" class="important-text">strong emphasis</strong> and a <code class="language-text">inline code</code> snippet.</p>
+        <div class="docs-prevnext"><span>Previous</span><span>Next</span></div>
+        <div class="fixedHeaderContainer">Another Fixed Header To Remove</div>
+    </div>
+    <div class="toc-headings">Headings for TOC, should be removed</div>
+</body>
+</html>

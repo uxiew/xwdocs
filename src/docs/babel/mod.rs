@@ -3,6 +3,8 @@
 mod clean;
 mod entries;
 mod scraper;
+#[cfg(test)] // Ensure tests module is only compiled for testing
+pub mod tests;
 
 pub use clean::BabelCleanHtmlFilter;
 pub use entries::BabelEntriesFilter;

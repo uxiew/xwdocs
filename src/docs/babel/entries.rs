@@ -1,120 +1,103 @@
-//! 参考 Ruby 版本 devdocs-original/lib/docs/filters/babel/entries.rb 设计
-//! 简化版 Babel 条目过滤器实现
-
-use crate::core::error::Result;
-use crate::core::scraper::filter::{Filter, FilterContext};
-use lazy_static::lazy_static;
+use eyre::Result;
 use scraper::{Html, Selector};
-use std::collections::HashMap;
 use std::any::Any;
 
-// 定义常量 ENTRIES，对应原Ruby版本的常量定义
-lazy_static! {
-    static ref ENTRIES: HashMap<&'static str, Vec<&'static str>> = {
-        let mut map = HashMap::new();
+use crate::core::scraper::filter::{Filter, FilterContext};
+use phf::phf_map;
 
-        map.insert(
-            "Usage",
-            vec![
-                "Options",
-                "Plugins",
-                "Config Files",
-                "Compiler assumptions",
-                "@babel/cli",
-                "@babel/polyfill",
-                "@babel/plugin-transform-runtime",
-                "@babel/register",
-            ],
-        );
+// NOTE: Using phf crate requires adding `phf = { version = "0.11", features = ["macros"] }` to Cargo.toml
+// and potentially `phf_codegen` to build-dependencies if not using the macros feature directly.
 
-        map.insert("Presets", vec!["@babel/preset"]);
+static ENTRIES: phf::Map<&'static str, &'static [&'static str]> = phf_map! {
+    "Usage" => &["Options", "Plugins", "Config Files", "Compiler assumptions", "@babel/cli", "@babel/polyfill", "@babel/plugin-transform-runtime", "@babel/register"],
+    "Presets" => &["@babel/preset"],
+    "Tooling" => &["@babel/parser", "@babel/core", "@babel/generator", "@babel/code-frame", "@babel/helper", "@babel/runtime", "@babel/template", "@babel/traverse", "@babel/types", "@babel/standalone"],
+};
 
-        map.insert(
-            "Tooling",
-            vec![
-                "@babel/parser",
-                "@babel/core",
-                "@babel/generator",
-                "@babel/code-frame",
-                "@babel/helper",
-                "@babel/runtime",
-                "@babel/template",
-                "@babel/traverse",
-                "@babel/types",
-                "@babel/standalone",
-            ],
-        );
+const DEFAULT_TYPE: &str = "Guide";
+const PLUGIN_TYPE: &str = "Other Plugins";
 
-        map
-    };
-}
-
-/// Babel 文档条目过滤器
-/// 参考 Ruby 原版 babel/entries.rb 实现
-pub struct BabelEntriesFilter {}
+#[derive(Debug, Default, Clone)]
+pub struct BabelEntriesFilter;
 
 impl BabelEntriesFilter {
-    /// 创建新的 Babel 条目过滤器
     pub fn new() -> Self {
-        Self {}
-    }
-
-    /// 获取文档名称 - 对应Ruby原版的get_name方法
-    fn get_name(&self, document: &Html) -> String {
-        if let Ok(selector) = Selector::parse("h1") {
-            if let Some(heading) = document.select(&selector).next() {
-                return heading.text().collect::<Vec<_>>().join("");
-            }
-        }
-        String::new()
-    }
-
-    /// 获取文档类型 - 对应Ruby原版的get_type方法
-    fn get_type(&self, name: &str, subpath: &str) -> Option<String> {
-        // 使用常量而不是临时变量，更接近原版实现
-        for (type_name, values) in ENTRIES.iter() {
-            if values.iter().any(|val| name.starts_with(val)) {
-                return Some((*type_name).to_string());
-            }
-        }
-
-        // 检查是否为插件
-        if subpath.contains("babel-plugin") {
-            return Some("Other Plugins".to_string());
-        }
-
-        None
+        Default::default()
     }
 }
 
 impl Filter for BabelEntriesFilter {
     fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> {
-        // 条目过滤器不修改HTML内容
+        // This filter does not modify the HTML content itself.
+        // Entry extraction happens in `get_entries`.
         Ok(html.to_string())
     }
 
     fn box_clone(&self) -> Box<dyn Filter> {
-        Box::new(Self::new())
+        Box::new(self.clone())
     }
 
-    fn get_entries(&self, html: &str, context: &FilterContext) -> Vec<(String, String, String)> {
-        let document = Html::parse_document(html);
-        let name = self.get_name(&document);
+    fn get_entries(&self, html_str: &str, context: &FilterContext) -> Vec<(String, String, String)> {
+        let document = Html::parse_document(html_str);
+        let mut entries_vec = Vec::new();
 
-        // 获取类型
-        let entry_type = self
-            .get_type(&name, &context.current_path)
-            .unwrap_or_else(|| "Miscellaneous".to_string());
+        // 1. Extract Entry Name (from <h1>)
+        let h1_selector = Selector::parse("h1").expect("Invalid h1 selector"); // Should not fail for "h1"
+        let name = if let Some(h1_element) = document.select(&h1_selector).next() {
+            h1_element.text().collect::<String>().trim().to_string()
+        } else {
+            // If no h1, cannot determine a name, so return no entries.
+            // Alternative: use context.title or other fallback if appropriate.
+            return entries_vec; 
+        };
 
-        // 创建条目 - 简单地返回当前页面作为唯一条目
-        vec![(name, context.current_path.clone(), entry_type)]
+        // If name is empty after trimming, it's not a valid entry.
+        if name.is_empty() {
+            return entries_vec;
+        }
+
+        // 2. Determine Entry Type
+        let mut entry_type: Option<String> = None;
+
+        // Check against ENTRIES map
+        for (category, prefixes) in ENTRIES.into_iter() {
+            if prefixes.iter().any(|prefix| name.starts_with(prefix)) {
+                entry_type = Some(category.to_string());
+                break;
+            }
+        }
+
+        // If not found, check subpath for "babel-plugin"
+        if entry_type.is_none() {
+            // context.current_path is the relative path of the file/page being processed.
+            // This serves as the 'subpath'.
+            if context.current_path.contains("babel-plugin") {
+                entry_type = Some(PLUGIN_TYPE.to_string());
+            }
+        }
+        
+        // Assign default type if still not determined
+        let final_entry_type = entry_type.unwrap_or_else(|| DEFAULT_TYPE.to_string());
+
+        // The 'path' for the entry is typically the path of the current document.
+        // The FilterContext provides `current_path`.
+        let path = context.current_path.clone(); 
+
+        entries_vec.push((name, path, final_entry_type));
+        
+        entries_vec
     }
 
+    // Standard trait methods for dynamic dispatch and type introspection
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
+        // As FilterContext is not taken mutably in get_entries, 
+        // and this filter itself has no state,
+        // a mutable reference to self might not be strictly necessary for this filter's logic.
+        // However, the trait requires it.
         self
     }
 }
