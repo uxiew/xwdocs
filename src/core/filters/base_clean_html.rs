@@ -4,7 +4,7 @@
 
 use crate::core::error::Result;
 use crate::core::scraper::filter::{Filter, FilterContext};
-use scraper::{Html, Node, Selector};
+use scraper::{Html, Selector}; // Removed Node
 use std::any::Any;
 
 /// 过滤器基础特质

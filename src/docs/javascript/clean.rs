@@ -17,7 +17,7 @@ impl JavaScriptCleanHtmlFilter {
 }
 
 impl Filter for JavaScriptCleanHtmlFilter {
-    fn apply(&self, html: &str, context: &mut FilterContext) -> Result<String> {
+    fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> { // context changed to _context
         let document = Html::parse_fragment(html);
         let mut output = String::new();
 

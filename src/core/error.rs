@@ -3,6 +3,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 use std::io;
+use eyre::Report; // Added for From<eyre::Report>
 
 /// 应用错误类型
 #[derive(Debug)]
@@ -16,7 +17,9 @@ pub enum Error {
     /// 无效的内容类型
     InvalidContentType(String),
     /// 无效的URL
-    InvalidUrl(String),
+    InvalidUrl(String), // This is for general invalid URL strings, not specific parse errors.
+    /// URL解析错误 (from url crate)
+    UrlParse(url::ParseError),
     /// JSON处理错误
     Json(serde_json::Error),
     /// HTML解析错误
@@ -37,6 +40,7 @@ impl fmt::Display for Error {
             Error::HttpError(code) => write!(f, "HTTP错误代码: {}", code),
             Error::InvalidContentType(content_type) => write!(f, "无效的内容类型: {}", content_type),
             Error::InvalidUrl(url) => write!(f, "无效的URL: {}", url),
+            Error::UrlParse(err) => write!(f, "URL解析错误: {}", err),
             Error::Json(err) => write!(f, "JSON错误: {}", err),
             Error::Html(msg) => write!(f, "HTML错误: {}", msg),
             Error::ParseError(msg) => write!(f, "解析错误: {}", msg),
@@ -52,9 +56,16 @@ impl StdError for Error {
             Error::Io(err) => Some(err),
             Error::Http(err) => Some(err),
             Error::Json(err) => Some(err),
+            Error::UrlParse(err) => Some(err), // Add source for UrlParse
             Error::Html(_) | Error::ParseError(_) | Error::Doc(_) | Error::Message(_) | 
             Error::HttpError(_) | Error::InvalidContentType(_) | Error::InvalidUrl(_) => None,
         }
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::UrlParse(err)
     }
 }
 
@@ -91,6 +102,12 @@ impl From<&str> for Error {
 impl From<Box<dyn StdError>> for Error {
     fn from(err: Box<dyn StdError>) -> Self {
         Error::Message(err.to_string())
+    }
+}
+
+impl From<eyre::Report> for Error {
+    fn from(err: eyre::Report) -> Self {
+        Error::Message(format!("{:?}", err)) // Store the eyre::Report as a string
     }
 }
 

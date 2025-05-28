@@ -88,12 +88,17 @@ where
 {
     let start_time = Instant::now();
 
-    let info = InstrumentInfo {
+    let _info = InstrumentInfo { // Changed info to _info
         name: name.to_string(),
         start_time,
         duration: None,
-        payload,
+        payload: payload.clone(), // Clone payload for the first info struct
     };
+    // Note: This first 'info' instance is created, but then shadowed and not used.
+    // The payload is cloned here to allow its re-use for the second 'info' instance.
+    // A more optimal approach might be to construct the first 'info' without payload
+    // if it's truly unused, or delay its full construction.
+    // However, cloning is the most direct fix for the move error.
 
     let result = action();
 

@@ -3,13 +3,18 @@
 //! 参考原始 Ruby 项目中的 doc.rb 实现
 //! 提供文档的基本属性和操作功能
 
+// Define a new trait for objects that can be serialized to JSON for the store_index method
+trait ToJsonOutput {
+    fn to_json_output(&mut self) -> String;
+}
+
 use crate::core::error::Result;
 use crate::core::index_entry::{FullIndex, IndexEntry, IndexType};
 use crate::storage::store::Store;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+// use serde_json::json; // Removed unused import
 use std::collections::{HashMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH}; // SystemTime and UNIX_EPOCH are used in store_meta
 
 /// 常量定义
 pub const INDEX_FILENAME: &str = "index.json";
@@ -67,6 +72,14 @@ impl PageDb {
     /// 转换为 JSON 字符串
     pub fn to_json(&self) -> String {
         serde_json::to_string(&self.pages).unwrap_or_else(|_| "{}".to_string())
+    }
+}
+
+// Implement ToJsonOutput for PageDb
+impl ToJsonOutput for PageDb {
+    fn to_json_output(&mut self) -> String {
+        // PageDb::to_json takes &self, which is fine as &mut self can coerce to &self.
+        self.to_json()
     }
 }
 
@@ -144,6 +157,13 @@ impl EntryIndex {
     /// 转换为 JSON 字符串
     pub fn to_json(&mut self) -> String {
         serde_json::to_string(&self.to_full_index()).unwrap_or_else(|_| "{}".to_string())
+    }
+}
+
+// Implement ToJsonOutput for EntryIndex
+impl ToJsonOutput for EntryIndex {
+    fn to_json_output(&mut self) -> String {
+        self.to_json()
     }
 }
 
@@ -292,9 +312,7 @@ pub trait Doc {
     /// 存储索引
     fn store_index<T>(&self, store: &mut dyn Store, filename: &str, index: &mut T, read_write: bool) -> Result<()>
     where
-        T: {
-            fn to_json(&mut self) -> String;
-        }
+        T: ToJsonOutput, // Use the new ToJsonOutput trait for the constraint
     {
         let old_json = if read_write {
             store.read(filename).unwrap_or_else(|_| "{}".to_string())
@@ -302,7 +320,7 @@ pub trait Doc {
             "{}".to_string()
         };
         
-        let new_json = index.to_json();
+        let new_json = index.to_json_output(); // Call the method from ToJsonOutput trait
         
         // TODO: 实现 instrument 功能
         // instrument(format!("{}.doc", filename.replacen(".json", "", 1)), old_json, new_json);

@@ -5,20 +5,32 @@
 
 use crate::core::error::{Error, Result};
 use html5ever::driver::ParseOpts;
-use html5ever::tendril::TendrilSink;
+use html5ever::tendril::{TendrilSink, StrTendril}; // Added StrTendril
 use html5ever::tree_builder::TreeBuilderOpts;
-use html5ever::{parse_document, parse_fragment};
-use markup5ever_arcdom::{ArcDom, Handle, NodeData};
+use html5ever::{parse_document, parse_fragment, QualName, Namespace, LocalName}; // Ensured all are from html5ever
+use html5ever::namespaces::HTML_NS; // For the HTML namespace constant
+// Removed: use markup5ever::{Namespace, Atom}; 
+use markup5ever_arcdom::{ArcDom, Handle, NodeData}; // This is for ArcDom, not core types for QualName
 use regex::Regex;
 use std::default::Default;
 use std::str;
-use std::sync::Arc;
+// use std::sync::Arc; // Removed unused import
 
 /// HTML 解析器结构体
-#[derive(Debug)]
+// #[derive(Debug)] // Removed derive(Debug)
 pub struct Parser {
     /// 内部解析选项
     parse_opts: ParseOpts,
+}
+
+// Manual implementation of Debug for Parser
+impl std::fmt::Debug for Parser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Parser")
+         // .field("parse_opts", &self.parse_opts) // This would fail
+         .field("parse_opts", &"<ParseOpts (not Debug)>") // Placeholder
+         .finish()
+    }
 }
 
 impl Default for Parser {
@@ -50,11 +62,16 @@ impl Parser {
     }
 
     /// 解析 HTML 片段
-    pub fn parse_fragment(&self, html: &str, context_node: &str) -> Result<ArcDom> {
+    pub fn parse_fragment(&self, html: &str, context_node_str: &str) -> Result<ArcDom> {
+        // Construct QualName for the context node, assuming HTML namespace
+        let local_name = LocalName::from(context_node_str); // Atom::from can take &str
+        // HTML_NS is &'static Namespace, QualName::new expects Namespace by value.
+        let context_qual_name = QualName::new(None, *HTML_NS, local_name); // This construction is correct as per instructions
+        
         let dom = parse_fragment(
             ArcDom::default(),
             self.parse_opts.clone(),
-            context_node.parse().unwrap(),
+            context_qual_name, // Pass the constructed QualName
             Vec::new(),
         )
         .from_utf8()

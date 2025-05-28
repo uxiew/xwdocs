@@ -51,7 +51,7 @@ impl JavaScriptEntriesFilter {
 }
 
 impl Filter for JavaScriptEntriesFilter {
-    fn apply(&self, html: &str, context: &mut FilterContext) -> Result<String> {
+    fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> { // context changed to _context
         Ok(html.to_string())
     }
 

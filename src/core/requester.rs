@@ -18,8 +18,8 @@ pub struct Requester {
     request_options: RequestOptions,
     /// 最大并发请求数
     max_concurrency: usize,
-    /// 响应回调函数
-    on_response: Vec<Box<dyn Fn(&Response) -> Option<Vec<String>> + Send + Sync>>,
+    /// 响应回调函数 (using Arc for cloneable Fn traits)
+    on_response: Vec<Arc<dyn Fn(&Response) -> Option<Vec<String>> + Send + Sync>>,
 }
 
 impl Requester {
@@ -48,7 +48,7 @@ impl Requester {
     where
         F: Fn(&Response) -> Option<Vec<String>> + 'static + Send + Sync,
     {
-        self.on_response.push(Box::new(callback));
+        self.on_response.push(Arc::new(callback)); // Wrap callback in Arc
     }
 
     /// 发送请求
@@ -71,7 +71,8 @@ impl Requester {
                         let request_options = self.request_options.clone();
                         let processed_clone = processed.clone();
                         let queue_clone = queue.clone();
-                        let on_response = self.on_response.clone();
+                        // Clone the Arcs for the new task
+                        let on_response_cloned = self.on_response.iter().map(Arc::clone).collect::<Vec<_>>();
                         
                         // 创建异步任务
                         futures.push(tokio::spawn(async move {
@@ -82,7 +83,7 @@ impl Requester {
                             match Self::send_request(&url, &request_options) {
                                 Ok(response) => {
                                     // 调用回调处理响应
-                                    for callback in &on_response {
+                                    for callback in &on_response_cloned { // Use the cloned Vec of Arcs
                                         if let Some(new_urls) = callback(&response) {
                                             // 添加新的 URL 到队列
                                             let mut q = queue_clone.lock().unwrap();

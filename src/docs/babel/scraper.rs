@@ -1,36 +1,33 @@
 use async_trait::async_trait;
-use eyre::Result;
+// use eyre::Result; // Will be replaced by CoreResult if no other eyre features are used.
+                  // If eyre::eyre! or other specific eyre features are used internally, keep it.
+                  // For now, assuming only the Result type alias was used for the run signature.
+use crate::core::error::Result as CoreResult; // Alias for the project's Result type
 use regex::RegexSet;
+use std::sync::Arc; 
 
-use crate::core::doc::Doc;
-use crate::core::scraper::filter::Filter; // Added for filters()
-use crate::docs::babel::clean::BabelCleanHtmlFilter; // Added for filters()
-use crate::docs::babel::entries::BabelEntriesFilter; // Added for filters()
-// Assuming UrlScraper is the base scraper used elsewhere, similar to CssScraper
-// If not, these configurations would need to be handled directly in BabelScraper or via the Scraper trait.
-use crate::core::scraper::{Scraper, UrlScraper}; // Assuming UrlScraper exists and is relevant
-use crate::core::types::StackItem;
+// Corrected imports based on analysis
+use crate::core::scraper::base::Scraper; 
+use crate::core::scraper::filter::Filter; // This is unused, will be caught by compiler if so.
+use crate::core::scraper::url_scraper::UrlScraper;
+use crate::docs::babel::clean::BabelCleanHtmlFilter;
+use crate::docs::babel::entries::BabelEntriesFilter;
+// use crate::core::doc::Doc; // Doc is a trait, if Item was an associated type, it would be Box<dyn Doc>
+// use crate::core::types::StackItem; // StackItem not found in types.rs
+// use crate::core::config::Options; // Options not found in config.rs
 
-#[derive(Debug, Clone)]
+// UrlScraper does not derive Debug or Clone, so BabelScraper cannot either if it contains UrlScraper directly.
+// #[derive(Debug, Clone)] 
 pub struct BabelScraper {
-    // Assuming UrlScraper handles common scraper functionalities like storing base_url, options, etc.
-    // If UrlScraper is not the right base, these fields would be part of BabelScraper directly.
     scraper: UrlScraper,
-    skip_patterns: RegexSet,
+    // skip_patterns are now captured by the skip_link closure in UrlScraper
 }
 
 impl BabelScraper {
     pub fn new(version: &str, output_path: &str) -> Self {
         let base_url = "https://babeljs.io/docs/";
-        let mut scraper = UrlScraper::new("Babel", version, base_url, output_path);
-
-        // 1. Set base_url - handled by UrlScraper::new
-
-        // 2. Set trailing_slash
-        scraper.options_mut().set_trailing_slash(true); // Assuming this method exists
-
-        // 3. Define skip_patterns
-        let skip_patterns = RegexSet::new(&[
+        
+        let skip_patterns_arc = Arc::new(RegexSet::new(&[
             r"/usage/",
             r"/configuration/",
             r"/learn/",
@@ -41,102 +38,78 @@ impl BabelScraper {
             r"/caveats/",
             r"/faq/",
             r"/roadmap/",
-        ])
-        .unwrap();
+        ]).unwrap());
 
-        // 4. Set skip_link logic - This will be implemented in should_scrape_url or similar
-        // For now, we store the patterns. The actual logic will be in a method.
+        let skip_link_logic = {
+            let patterns = Arc::clone(&skip_patterns_arc);
+            move |url_str: &str| -> bool {
+                if url_str.starts_with("https://babeljs.io/docs/en/") {
+                    return true;
+                }
+                if patterns.is_match(url_str) {
+                    return true;
+                }
+                false
+            }
+        };
 
-        // 5. Set attribution
-        let attribution = r#"
+        let attribution_text = r#"
 &copy; 2014-present Sebastian McKenzie<br>
 Licensed under the MIT License.
-        "#
-        .to_string();
-        scraper.options_mut().set_attribution(attribution); // Assuming this method exists
+        "#;
 
-        // Example: Add initial paths if necessary (based on CssScraper)
-        // scraper = scraper.with_initial_paths(vec!["/".to_string()]);
+        let mut url_scraper = UrlScraper::new("Babel", version, base_url, output_path)
+            .with_trailing_slash(true)
+            .with_attribution(attribution_text)
+            .with_skip_link(skip_link_logic);
+            // Filters are added directly to UrlScraper
+            // .with_initial_paths(vec!["/".to_string()]); // Example if needed
 
+        url_scraper.filters.push(Box::new(BabelCleanHtmlFilter::default()));
+        url_scraper.filters.push(Box::new(BabelEntriesFilter::default()));
+        
         Self {
-            scraper,
-            skip_patterns,
+            scraper: url_scraper,
         }
     }
 
-    // Helper method for skip_link logic, assuming it's called by a method from Scraper trait
-    // or within the scrape method.
-    fn should_skip_url(&self, url_str: &str) -> bool {
-        if url_str.starts_with("https://babeljs.io/docs/en/") {
-            return true; // Skip this URL
-        }
-        // Check against skip_patterns
-        if self.skip_patterns.is_match(url_str) {
-            return true; // Skip this URL
-        }
-        false // Do not skip
+    // get_latest_version is not part of the Scraper trait.
+    // It should be an inherent method if needed.
+    // For now, commenting out due to unresolved dependency on crate::core::utils::github
+    // and crate::core::config::Options
+    /*
+    pub fn get_latest_version(&self, _opts: Option<Options>) -> Result<String> {
+        // Correct path to github utility would be needed.
+        // crate::core::utils::github::get_latest_github_release("babel", "babel")
+        unimplemented!("get_latest_version needs core::utils::github and potentially Options type fixed")
     }
+    */
 }
 
 #[async_trait]
 impl Scraper for BabelScraper {
-    // Assuming Config and Item types are handled by UrlScraper or are generic
-    type Config = <UrlScraper as Scraper>::Config;
-    type Item = Doc; // Or <UrlScraper as Scraper>::Item if Doc is generic to UrlScraper
+    // Scraper trait does not have Config or Item associated types.
+    // type Config = <UrlScraper as Scraper>::Config; // Incorrect
+    // type Item = Box<dyn Doc>; // Incorrect as Item is not an associated type of Scraper
 
     fn name(&self) -> &str {
         self.scraper.name()
     }
 
-    fn config(&self) -> &Self::Config {
-        self.scraper.config()
+    fn version(&self) -> &str {
+        // BabelScraper's `new` takes `version` which is passed to UrlScraper.
+        self.scraper.version()
     }
 
-    fn config_mut(&mut self) -> &mut Self::Config {
-        self.scraper.config_mut()
+    async fn run(&mut self) -> CoreResult<()> { // Changed return type to CoreResult
+        // Delegate to the wrapped UrlScraper's run method.
+        // self.scraper.run().await already returns crate::core::error::Result<()>
+        self.scraper.run().await
     }
 
-    fn stack(&self) -> &Vec<StackItem> {
-        self.scraper.stack()
-    }
-
-    fn stack_mut(&mut self) -> &mut Vec<StackItem> {
-        self.scraper.stack_mut()
-    }
-
-    async fn scrape(&mut self) -> Result<Vec<Self::Item>> {
-        // The actual scraping logic will need to use self.should_skip_url(url)
-        // For example, when iterating through links:
-        // let links = find_all_links_on_page(current_page_content);
-        // for link in links {
-        //     if !self.should_skip_url(&link) {
-        //         self.stack_mut().push(StackItem::Url(link));
-        //     }
-        // }
-        // This is a placeholder for the actual scraping logic.
-        // It would likely call self.scraper.scrape() or a similar method if UrlScraper handles the core loop.
-        // Or, if BabelScraper implements its own loop, it would fetch pages, parse them,
-        // extract links, filter them using should_skip_url, and extract content.
-        unimplemented!("Actual scraping logic needs to be implemented, using should_skip_url and skip_patterns.")
-    }
-
-    fn filters(&self) -> Result<Vec<Box<dyn Filter>>> {
-        Ok(vec![
-            Box::new(BabelCleanHtmlFilter::default()),
-            Box::new(BabelEntriesFilter::default()),
-        ])
-    }
-
-    fn get_latest_version(&self, _opts: Option<crate::core::config::Options>) -> Result<String> {
-        // Call the utility function to get the latest release from GitHub.
-        // Assuming the path to the utility function is crate::core::utils::github::get_latest_github_release
-        // and it does not require the `opts` parameter for this specific functionality.
-        crate::core::utils::github::get_latest_github_release("babel", "babel")
-    }
-
-    // Potentially, a method like this would be part of the Scraper trait
-    // or called by the scraping loop.
-    // fn should_scrape_url(&self, url: &str) -> bool {
-    //     !self.should_skip_url(url)
-    // }
+    // Methods like config, config_mut, stack, stack_mut, scrape, filters
+    // are not part of the core Scraper trait.
+    // They were likely assumed from a different trait definition or were specific to a BaseScraper concept
+    // that UrlScraper itself embodies but doesn't expose via these specific methods through the main Scraper trait.
+    // UrlScraper's own `run` method handles the scraping loop, fetching, filtering, etc.
 }

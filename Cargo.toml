@@ -60,16 +60,46 @@ chrono = "0.4"
 futures = "0.3"
 
 # Image processing
-image = "0.25.6"
+image = "0.23.14" # Further downgraded from 0.24.8
 
 # Async trait support
 async-trait = "0.1"
 
+# Error handling (additional, for eyre)
+eyre = "0.6"
+
+# HTML escaping
+html-escape = "0.2"
+
+# Perfect Hashing Function for static maps (macros feature for phf_map!)
+phf = { version = "0.11", features = ["macros"] }
+
 # Futures utilities
 futures-util = "0.3"
 
+# ICU provider (further downgraded for Rust 1.75 compatibility)
+icu_provider = "=0.6.0" # Downgraded from =1.4.0
+
+# idna_adapter (pinned for Rust 1.75 compatibility)
+idna_adapter = "=1.1.0" # Corrected version from 1.1.1 to 1.1.0
+
+# native-tls (pinned for Rust 1.75 compatibility)
+native-tls = "=0.2.11"
+
+# half (pinned for Rust 1.75 compatibility, likely for image crate)
+half = "=2.3.1"
+
+# bitstream-io = "=2.1.1" # Removed direct pin, let image = "0.23.14" resolve it
+
+# zerofrom (pinned for Rust 1.75 compatibility)
+zerofrom = "=0.1.5"
+
+# litemap, zerovec, icu_normalizer_data pins removed to let icu_provider resolve them.
+# If this fails, it implies icu_provider = "=1.4.0" itself has issues with Rust 1.75
+# or its own dependency specifications for that version are problematic.
+
 # 日期时间处理
-chrono = "0.4"
+# chrono = "0.4" # Removed duplicate entry
 
 [dev-dependencies]
 mockito = "1.0"

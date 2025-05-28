@@ -58,7 +58,7 @@ impl ImagesFilter {
     /// 下载图片并转换为 Base64
     fn download_image(&self, url: &str) -> Result<String> {
         // 发起请求下载图片
-        let mut response = self
+        let response = self // Removed mut
             .client
             .get(url)
             .send()

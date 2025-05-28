@@ -4,10 +4,10 @@
 //! 提供事件订阅和日志记录功能
 
 use crate::core::instrumentable::InstrumentInfo;
-use std::io::{self, Write};
+use std::io::Write; // Changed from std::io::{self, Write}
 use std::sync::{Arc, Mutex};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use textwrap::fill;
+// use textwrap::fill; // Removed unused import
 
 /// 终端宽度环境变量
 const ENV_COLUMNS: &str = "COLUMNS";
@@ -79,9 +79,37 @@ impl ConsoleSubscriber {
     /// 格式化路径，移除当前目录前缀
     fn format_path(&self, path: &str) -> String {
         // 获取当前目录
-        if let Ok(current_dir) = std::env::current_dir() {
-            if let Ok(current_path) = current_dir.to_str() {
-                return path.replace(current_path, "");
+        if let Ok(current_dir_pathbuf) = std::env::current_dir() {
+            if let Some(current_path_str) = current_dir_pathbuf.to_str() {
+                // Replace the current directory path prefix if present.
+                // Ensure to handle cases where path might not start with current_path_str
+                // or where replacing an empty string might lead to issues.
+                // A simple replace might be too naive if current_path_str is "/" for example.
+                // However, for typical paths, it should work.
+                // A more robust way might be to use path.strip_prefix.
+                if path.starts_with(current_path_str) {
+                    // Add a separator if current_path_str is not the root "/"
+                    // and path is not identical to current_path_str.
+                    let prefix_len = current_path_str.len();
+                    if path.len() > prefix_len && current_path_str != "/" {
+                        // Check character after prefix
+                        if path.as_bytes().get(prefix_len) == Some(&b'/') || path.as_bytes().get(prefix_len) == Some(&b'\\') {
+                            return path[prefix_len + 1..].to_string();
+                        } else {
+                             // It's possible current_path_str is "foo" and path is "foobar" - not a directory prefix.
+                             // This basic replacement is kept from original, but strip_prefix is better.
+                             return path.replace(current_path_str, "").trim_start_matches('/').to_string();
+                        }
+                    } else if path == current_path_str {
+                        return "".to_string(); // Or perhaps "."
+                    } else {
+                        // path might be shorter or different. Default to original path.
+                        // The original `path.replace(current_path, "")` would work here too if current_path is not found.
+                        return path.to_string();
+                    }
+                } else {
+                    return path.to_string();
+                }
             }
         }
         path.to_string()

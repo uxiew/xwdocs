@@ -25,7 +25,7 @@ impl UrlNormalizerFilter {
 }
 
 impl Filter for UrlNormalizerFilter {
-    fn apply(&self, html: &str, context: &mut FilterContext) -> Result<String> {
+    fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> { // context changed to _context
         // 在实际实现中，这里应该解析HTML并规范化所有URL
         // 现在我们只返回原始HTML
         Ok(html.to_string())

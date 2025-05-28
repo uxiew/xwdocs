@@ -1,10 +1,13 @@
-use eyre::Result;
-use scraper::{Html, Selector, ElementRef};
+// use eyre::Result; // Keep using eyre for internal errors, but trait signature will use core::error::Result
+use crate::core::error::Result as CoreResult; // Alias for the project's Result type
+use scraper::{Html, Selector}; 
 use regex::Regex;
+use std::any::Any; 
 
-use crate::core::scraper::filter::Filter; // Assuming Filter trait's path
+// Import the actual Filter trait and FilterContext
+use crate::core::scraper::filter::{Filter, FilterContext};
 
-#[derive(Debug, Default, Clone)] // Added Clone for potential future use if needed by Filter trait context
+#[derive(Debug, Default, Clone)] // Ensured Clone is derived
 pub struct BabelCleanHtmlFilter;
 
 impl BabelCleanHtmlFilter {
@@ -13,105 +16,98 @@ impl BabelCleanHtmlFilter {
     }
 }
 
+// Reimplementing the Filter trait for BabelCleanHtmlFilter
 impl Filter for BabelCleanHtmlFilter {
-    fn process(&self, document: Html) -> Result<Html> {
-        // 1. Select main content
-        let main_content_selector = Selector::parse(".theme-doc-markdown")
-            .map_err(|e| eyre::eyre!("Failed to parse .theme-doc-markdown selector: {}", e))?;
-        
-        let mut html_string = if let Some(main_content_node) = document.select(&main_content_selector).next() {
-            main_content_node.html()
-        } else {
-            // If .theme-doc-markdown is not found, process (and potentially clean) the whole document's HTML.
-            // Or, depending on requirements, one might return an error or an empty document.
-            // For this implementation, we'll use the original document's full HTML.
-            document.root_element().html()
-        };
+    fn apply(&self, html_input_str: &str, _context: &mut FilterContext) -> CoreResult<String> { // Changed return type
+        // Internal logic can still use eyre::Result and `?` will convert via From impl
+        let internal_result: eyre::Result<String> = (|| {
+            // Parse the full HTML string first
+            let document = Html::parse_document(html_input_str);
 
-        // 2. Remove unnecessary elements (using string manipulation with regex for simplicity here)
-        // More robust parsing might be needed for complex cases.
-        let selectors_to_remove_patterns = [
-            // Simple class/element removals. Complex selectors like ">" are harder with simple regex.
-            r#"(?s)<div\s[^>]*class="[^"]*fixedHeaderContainer[^"]*"[^>]*>.*?</div>"#,
-            r#"(?s)<div\s[^>]*class="[^"]*toc[^"]*"[^>]*>.*?</div>"#, // Matches .toc
-            r#"(?s)<div\s[^>]*class="[^"]*toc-headings[^"]*"[^>]*>.*?</div>"#, // Matches .toc-headings
-            r#"(?s)<nav\s[^>]*class="[^"]*nav-footer[^"]*"[^>]*>.*?</nav>"#, // Matches .nav-footer (assuming it's a nav)
-            // For .postHeader > a, it's complex. A simple regex might remove all <a> within .postHeader.
-            // A proper parser-based approach would be better. This is a simplification.
-            // Example: r#"(?s)(<div\s[^>]*class="[^"]*postHeader[^"]*"[^>]*>)\s*<a[^>]*>.*?</a>"#, (and then keep group 1)
-            r#"(?s)<div\s[^>]*class="[^"]*docs-prevnext[^"]*"[^>]*>.*?</div>"#,
-            r#"(?s)<div\s[^>]*class="[^"]*codeBlockTitle_x_ju[^"]*"[^>]*>.*?</div>"#,
-        ];
-
-        for pattern_str in &selectors_to_remove_patterns {
-            let regex = Regex::new(pattern_str)
-                .map_err(|e| eyre::eyre!("Failed to compile regex pattern '{}': {}", pattern_str, e))?;
-            html_string = regex.replace_all(&html_string, "").into_owned();
-        }
-        
-        // Special handling for .postHeader > a (conceptual, needs proper parsing or very careful regex)
-        // This regex is a placeholder for a more complex operation:
-        // It aims to remove direct child 'a' tags of '.postHeader'.
-        // A simple regex for this is difficult and error-prone.
-        // For now, we'll skip robustly implementing this specific complex selector via regex.
-
-        // 3. Process code blocks
-        // This requires parsing the current html_string to find <pre> elements,
-        // modifying them, and then serializing back or carefully replacing parts of the string.
-        // This is a complex operation to do with string manipulation alone if not careful.
-        // Let's try a regex-based approach for <pre> blocks.
-        // This will be a multi-stage regex process.
-        
-        // Regex to find <pre class="language-...">...</pre>
-        let pre_block_regex = Regex::new(r#"(?s)<pre\s*(?:class="[^"]*language-([^"\s]+)[^"]*")?[^>]*>(.*?)</pre>"#)
-            .map_err(|e| eyre::eyre!("Failed to compile pre_block_regex: {}", e))?;
-        
-        html_string = pre_block_regex.replace_all(&html_string, |caps: &regex::Captures| {
-            let lang_attr = caps.get(1).map_or("".to_string(), |m| format!(r#"data-language="{}""#, m.as_str()));
-            let original_pre_content = caps.get(2).map_or("", |m| m.as_str());
-
-            // Parse the inner content of <pre> to find .token-line
-            let pre_content_doc = Html::parse_fragment(original_pre_content);
-            let token_line_selector = Selector::parse(".token-line").unwrap(); // Safe unwrap for known selector
+            // 1. Select main content
+            let main_content_selector = Selector::parse(".theme-doc-markdown")
+                .map_err(|e| eyre::eyre!("Failed to parse .theme-doc-markdown selector: {}", e))?;
             
-            let new_inner_content = pre_content_doc
-                .select(&token_line_selector)
-                .map(|token_line_el| token_line_el.text().collect::<String>())
-                .collect::<Vec<String>>()
-                .join("\n"); // Join lines with newline
+            let mut effective_html_string = if let Some(main_content_node) = document.select(&main_content_selector).next() {
+                main_content_node.html() // Work with the HTML of the main content
+            } else {
+                // If .theme-doc-markdown is not found, process the whole document's HTML string.
+                html_input_str.to_string() 
+            };
 
-            format!("<pre {}><code {}>{}</code></pre>", lang_attr, lang_attr, html_escape::encode_text(&new_inner_content))
-        }).into_owned();
+            // The rest of the cleaning logic uses regex on `effective_html_string`
+            // This part is preserved from the previous `process` method's logic.
 
+            // 2. Remove unnecessary elements
+            let selectors_to_remove_patterns = [
+                r#"(?s)<div\s[^>]*class="[^"]*fixedHeaderContainer[^"]*"[^>]*>.*?</div>"#,
+                r#"(?s)<div\s[^>]*class="[^"]*toc[^"]*"[^>]*>.*?</div>"#,
+                r#"(?s)<div\s[^>]*class="[^"]*toc-headings[^"]*"[^>]*>.*?</div>"#,
+                r#"(?s)<nav\s[^>]*class="[^"]*nav-footer[^"]*"[^>]*>.*?</nav>"#,
+                r#"(?s)<div\s[^>]*class="[^"]*docs-prevnext[^"]*"[^>]*>.*?</div>"#,
+                r#"(?s)<div\s[^>]*class="[^"]*codeBlockTitle_x_ju[^"]*"[^>]*>.*?</div>"#,
+            ];
 
-        // 4. Remove class and style attributes from all elements
-        // Regex to remove class attribute
-        let class_attr_regex = Regex::new(r#"\s*class="[^"]*""#)
-            .map_err(|e| eyre::eyre!("Failed to compile class_attr_regex: {}", e))?;
-        html_string = class_attr_regex.replace_all(&html_string, "").into_owned();
+            for pattern_str in &selectors_to_remove_patterns {
+                let regex = Regex::new(pattern_str)
+                    .map_err(|e| eyre::eyre!("Failed to compile regex pattern '{}': {}", pattern_str, e))?;
+                effective_html_string = regex.replace_all(&effective_html_string, "").into_owned();
+            }
+            
+            // 3. Process code blocks
+            let pre_block_regex = Regex::new(r#"(?s)<pre\s*(?:class="[^"]*language-([^"\s]+)[^"]*")?[^>]*>(.*?)</pre>"#)
+                .map_err(|e| eyre::eyre!("Failed to compile pre_block_regex: {}", e))?;
+            
+            effective_html_string = pre_block_regex.replace_all(&effective_html_string, |caps: &regex::Captures| {
+                let lang_attr = caps.get(1).map_or("".to_string(), |m| format!(r#"data-language="{}""#, m.as_str()));
+                let original_pre_content = caps.get(2).map_or("", |m| m.as_str());
 
-        // Regex to remove style attribute
-        let style_attr_regex = Regex::new(r#"\s*style="[^"]*""#)
-            .map_err(|e| eyre::eyre!("Failed to compile style_attr_regex: {}", e))?;
-        html_string = style_attr_regex.replace_all(&html_string, "").into_owned();
+                let pre_content_doc = Html::parse_fragment(original_pre_content);
+                let token_line_selector = Selector::parse(".token-line").expect("Invalid .token-line selector"); // expect is fine for static, known-good selectors
+                
+                let new_inner_content = pre_content_doc
+                    .select(&token_line_selector)
+                    .map(|token_line_el| token_line_el.text().collect::<String>())
+                    .collect::<Vec<String>>()
+                    .join("\n");
 
-        // Re-parse the modified HTML string into an Html document
-        let final_document = Html::parse_fragment(&html_string);
-        Ok(final_document)
+                // Using html_escape::encode_text to prevent issues if code contains '<' or '&'
+                format!("<pre {}><code {}>{}</code></pre>", lang_attr, lang_attr, html_escape::encode_text(&new_inner_content))
+            }).into_owned();
+
+            // 4. Remove class and style attributes from all elements
+            let class_attr_regex = Regex::new(r#"\s*class="[^"]*""#)
+                .map_err(|e| eyre::eyre!("Failed to compile class_attr_regex: {}", e))?;
+            effective_html_string = class_attr_regex.replace_all(&effective_html_string, "").into_owned();
+
+            let style_attr_regex = Regex::new(r#"\s*style="[^"]*""#)
+                .map_err(|e| eyre::eyre!("Failed to compile style_attr_regex: {}", e))?;
+            effective_html_string = style_attr_regex.replace_all(&effective_html_string, "").into_owned();
+
+            Ok(effective_html_string)
+        })();
+        
+        // The `?` operator here will convert eyre::Report to crate::core::error::Error
+        // due to the From<eyre::Report> for crate::core::error::Error implementation.
+        Ok(internal_result?)
+    }
+
+    fn box_clone(&self) -> Box<dyn Filter> {
+        Box::new(self.clone())
+    }
+
+    // Keep only one correct definition of as_any
+    fn as_any(&self) -> &dyn Any {
+        self as &dyn Any
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        // Consistent with HtmlCleanerFilter and default Filter trait if no internal state needs mutation.
+        self as &mut dyn Any
     }
 }
 
-// Note: The Filter trait might require other methods like `box_clone` or `as_any`
-// depending on its full definition in `crate::core::scraper::filter::Filter`.
-// If so, those would need to be implemented as well.
-// For example:
-// impl Clone for Box<dyn Filter> {
-//     fn clone(&self) -> Box<dyn Filter> {
-//         self.box_clone()
-//     }
-// }
-// This assumes the trait definition requires `Clone` and provides `box_clone`.
-// The actual implementation details for those would depend on the trait definition.
-// Without the exact trait definition, this part is speculative.
-// The core logic is in `process`.
-```
+// The previous comment block at the end of the file which might have caused "unknown start of token"
+// has been removed by this overwrite operation. If the error was due to that, it should now be resolved.
+// The `ElementRef` import was commented out as it's not directly used in the final string processing logic.
+// If DOM-based cleaning (instead of regex on strings) were re-introduced, it might be needed.

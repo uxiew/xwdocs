@@ -1,4 +1,5 @@
-use eyre::Result;
+// use eyre::Result; // Keep using eyre for internal errors, but trait signature will use core::error::Result
+use crate::core::error::Result as CoreResult; // Alias for the project's Result type
 use scraper::{Html, Selector};
 use std::any::Any;
 
@@ -27,10 +28,11 @@ impl BabelEntriesFilter {
 }
 
 impl Filter for BabelEntriesFilter {
-    fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> {
+    fn apply(&self, html: &str, _context: &mut FilterContext) -> CoreResult<String> { // Changed return type
         // This filter does not modify the HTML content itself.
         // Entry extraction happens in `get_entries`.
-        Ok(html.to_string())
+        // If there was any fallible operation here that used eyre, it would need conversion.
+        Ok(html.to_string()) // This is fine as String itself is not a Result.
     }
 
     fn box_clone(&self) -> Box<dyn Filter> {

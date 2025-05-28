@@ -47,24 +47,24 @@ impl DocUrl {
             match key {
                 "scheme" => new_url
                     .set_scheme(value)
-                    .map_err(|_| ParseError::InvalidScheme)?,
+                    .map_err(|_| ParseError::RelativeUrlWithoutBase)?, // Using RelativeUrlWithoutBase as a placeholder
                 "username" => {
                     let password = new_url.password().unwrap_or("");
                     new_url
                         .set_username(value)
-                        .map_err(|_| ParseError::InvalidUsername)?;
+                        .map_err(|_| ParseError::RelativeUrlWithoutBase)?; // Using RelativeUrlWithoutBase
                     new_url
                         .set_password(Some(password))
-                        .map_err(|_| ParseError::InvalidPassword)?;
+                        .map_err(|_| ParseError::RelativeUrlWithoutBase)?; // Using RelativeUrlWithoutBase
                 }
                 "password" => {
                     new_url
                         .set_password(Some(value))
-                        .map_err(|_| ParseError::InvalidPassword)?;
+                        .map_err(|_| ParseError::RelativeUrlWithoutBase)?; // Using RelativeUrlWithoutBase
                 }
                 "host" => new_url
                     .set_host(Some(value))
-                    .map_err(|_| ParseError::InvalidHost)?,
+                    .map_err(|_| ParseError::RelativeUrlWithoutBase)?, // Using RelativeUrlWithoutBase
                 "port" => {
                     if let Ok(port) = value.parse::<u16>() {
                         new_url

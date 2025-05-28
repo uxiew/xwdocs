@@ -20,7 +20,7 @@ impl HtmlEntriesFilter {
         HtmlEntriesFilter
     }
 
-    fn get_name(&self, doc: &Html, slug: &str) -> String {
+    fn get_name(&self, _doc: &Html, slug: &str) -> String { // doc changed to _doc
         let mut name = slug.replace('_', " ")
             .replace('/', ".")
             .trim()
@@ -136,7 +136,7 @@ impl HtmlEntriesFilter {
 }
 
 impl Filter for HtmlEntriesFilter {
-    fn apply(&self, html: &str, context: &mut FilterContext) -> Result<String> {
+    fn apply(&self, html: &str, _context: &mut FilterContext) -> Result<String> { // context changed to _context
         Ok(html.to_string())
     }
 
@@ -146,7 +146,7 @@ impl Filter for HtmlEntriesFilter {
 
     fn get_entries(&self, html: &str, context: &FilterContext) -> Vec<(String, String, String)> {
         let slug = &context.current_path;
-        let is_root = slug.is_empty() || slug == "/" || slug == &context.root_path;
+        let _is_root = slug.is_empty() || slug == "/" || slug == &context.root_path; // is_root changed to _is_root
 
         let mut entries = Vec::new();
         let doc = Html::parse_document(html);

@@ -61,7 +61,7 @@ impl JavaScriptScraper {
         ];
 
         // 路径替换映射
-        let replace_paths = vec![
+        let _replace_paths = vec![ // replace_paths changed to _replace_paths
             (
                 "/template_strings".to_string(),
                 "/Template_literals".to_string(),
